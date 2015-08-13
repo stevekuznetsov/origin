@@ -553,7 +553,7 @@ find_files() {
       \( \
         -wholename './output' \
         -o -wholename './_output' \
-        -o -wholename './.git' \
+        -o -wholename './.*' \
         -o -wholename './release' \
         -o -wholename './pkg/assets/bindata.go' \
         -o -wholename './pkg/assets/*/bindata.go' \
