@@ -3,7 +3,8 @@
 # in a sub-shell and redirect all output. Tests in test-cmd *must* use these functions for testing.
 
 # We assume ${OS_ROOT} is set
-source "${OS_ROOT}/hack/text.sh" 
+source "${OS_ROOT}/hack/text.sh"
+source "${OS_ROOT}/hack/util.sh"
 
 # expect_success runs the cmd and expects an exit code of 0
 function os::cmd::expect_success() {
@@ -322,6 +323,76 @@ function os::cmd::internal::get_results() {
 	cat "${os_cmd_internal_tmpout}" "${os_cmd_internal_tmperr}"
 }
 
+# os::cmd::internal::get_try_until_results returns a concise view of the stdout and stderr output files
+# using a timeline format, where consecutive output lines that are the same are condensed into one line
+# with a counter
+function os::cmd::internal::print_try_until_results() {
+	if grep -vq "^====BETWEEN-ATTEMPTS====$" "${os_cmd_internal_tmpout}"; then 
+		echo "Standard output from the command:"
+		os::cmd::internal::compress_output "${os_cmd_internal_tmpout}"
+	else 
+		echo "There was no output from the command."                                      																																																																																																																
+	fi	
+
+	if grep -vq "^====BETWEEN-ATTEMPTS====$" "${os_cmd_internal_tmperr}"; then 
+		echo "Standard error from the command:"
+		os::cmd::internal::compress_output "${os_cmd_internal_tmperr}"
+	else 
+		echo "There was no error output from the command."                                      																																																																																																																
+	fi
+}
+
+# os::cmd::internal::mark_attempt marks the end of an attempt in the stdout and stderr log files
+# this is used to make the try_until_* output more concise
+function os::cmd::internal::mark_attempt() {
+	echo "====BETWEEN-ATTEMPTS====" >> "${os_cmd_internal_tmpout}" | tee "${os_cmd_internal_tmperr}"
+}
+
+# os::cmd::internal::compress_output compresses an output file into timeline representation
+function os::cmd::internal::compress_output() {
+	local logfile=$1
+
+	# we need to do some manipulation to allow for multi-line patterns to be parsed correctly
+	# we first remove all newlines and replace them with the placeholder '====REPLACEMENT===='
+	os::util::sed ':a;N;$!ba;s/\n/====REPLACEMENT====/g' "${logfile}"
+	# we then place newlines between attempts
+	os::util::sed "s/\(====REPLACEMENT====\)\?====BETWEEN-ATTEMPTS====\(====REPLACEMENT====\)\?/\n/g" "${logfile}"
+	# now we have a file with the output of an attempt on every line, but some attempts may have not had any output
+	# so we remove empty lines
+	os::util::sed '/^$/d' "${logfile}"
+
+	local lines=()
+	local amounts=()
+
+	while read line; do
+		if [[ "${#lines[@]}" -gt 0 ]]; then
+			# if we have records in the `lines` array, check to see if the line we are looking at is the
+			# same as the line we last saw, and if so, increment that counter. If not, add a new entry
+			if [[ "${lines[-1]}" == "${line}" ]]; then
+				amounts[${#amounts[@]} - 1]=$(( amounts[${#amounts[@]} - 1] + 1 ))
+			else 
+				lines+=("${line}")
+				amounts+=(1)
+			fi
+		else 
+			lines+=("${line}")
+			amounts+=(1)
+		fi
+	done < "${logfile}"
+
+	local entries="${#lines[@]}"
+	for (( i=0; i<${entries}; i++ )); do
+		local amount=$(printf '%5d' "${amounts[$i]}")
+
+		# the lines that we captured still have a placeholder for their newlines
+		echo "${lines[$i]}" > "${logfile}.part"
+		os::util::sed 's/====REPLACEMENT====/\n/g' "${logfile}.part"
+		local output=$(cat "${logfile}.part")
+		
+		echo "${amount}x '${output}'"
+	done
+}
+
 # os::cmd::internal::print_results pretty-prints the stderr and stdout files
 function os::cmd::internal::print_results() {
 	if [[ -s "${os_cmd_internal_tmpout}" ]]; then 
@@ -386,6 +457,7 @@ function os::cmd::internal::run_until_exit_code() {
 			break
 		fi
 		sleep "${interval}"
+		os::cmd::internal::mark_attempt
 	done
 
 	local end_time=$(os::cmd::internal::seconds_since_epoch)
@@ -401,12 +473,12 @@ function os::cmd::internal::run_until_exit_code() {
 
 		os::text::print_green "SUCCESS after ${time_elapsed}s: ${description}"
 		if [[ -n ${VERBOSE-} ]]; then
-			os::cmd::internal::print_results
+			os::cmd::internal::print_try_until_results
 		fi
 		return 0
 	else
 		os::text::print_red_bold "FAILURE after ${time_elapsed}s: ${description}: the command timed out"
-		os::text::print_red "$(os::cmd::internal::print_results)"
+		os::text::print_red "$(os::cmd::internal::print_try_until_results)"
 		return 1
 	fi
 }
@@ -441,6 +513,7 @@ function os::cmd::internal::run_until_text() {
 			break
 		fi
 		sleep "${interval}"
+		os::cmd::internal::mark_attempt
 	done
 
 	local end_time=$(os::cmd::internal::seconds_since_epoch)
@@ -456,12 +529,12 @@ function os::cmd::internal::run_until_text() {
 
 		os::text::print_green "SUCCESS after ${time_elapsed}s: ${description}"
 		if [[ -n ${VERBOSE-} ]]; then
-			os::cmd::internal::print_results
+			os::cmd::internal::print_try_until_results
 		fi
 		return 0
 	else
 		os::text::print_red_bold "FAILURE after ${time_elapsed}s: ${description}: the command timed out"
-		os::text::print_red "$(os::cmd::internal::print_results)"
+		os::text::print_red "$(os::cmd::internal::print_try_until_results)"
 		return 1
 	fi
 }

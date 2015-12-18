@@ -379,3 +379,49 @@ if os::cmd::try_until_failure 'exit 0' $(( 1 * second )); then
 fi
 
 echo "try_until: ok"
+
+echo 'success
+line 2
+====BETWEEN-ATTEMPTS====
+success
+line 2
+====BETWEEN-ATTEMPTS====
+success
+line 2
+====BETWEEN-ATTEMPTS====
+success NEW
+line 2
+====BETWEEN-ATTEMPTS====
+success NEW
+line 2
+====BETWEEN-ATTEMPTS====
+success NEW
+line 2
+====BETWEEN-ATTEMPTS====
+success NEW
+line 2
+====BETWEEN-ATTEMPTS====
+success OLD
+line 2
+====BETWEEN-ATTEMPTS====
+success OLD
+line 2
+====BETWEEN-ATTEMPTS====
+success OLD
+line 2
+====BETWEEN-ATTEMPTS====
+====BETWEEN-ATTEMPTS====
+====BETWEEN-ATTEMPTS====
+====BETWEEN-ATTEMPTS====
+====BETWEEN-ATTEMPTS====' > /tmp/openshift/origin/test/cmd/compress_test.txt
+
+echo "    3x 'success
+line 2'
+    4x 'success NEW
+line 2'
+    3x 'success OLD
+line 2'" > /tmp/openshift/origin/test/cmd/compress_test.out
+
+os::cmd::internal::compress_output /tmp/openshift/origin/test/cmd/compress_test.txt > /tmp/openshift/origin/test/cmd/compressed.out
+diff /tmp/openshift/origin/test/cmd/compress_test.out /tmp/openshift/origin/test/cmd/compressed.out
+echo "compression: ok"
