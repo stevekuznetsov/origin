@@ -380,47 +380,49 @@ fi
 
 echo "try_until: ok"
 
-echo 'success
+echo -e 'success
 line 2
-====BETWEEN-ATTEMPTS====
+\x1e
 success
 line 2
-====BETWEEN-ATTEMPTS====
+\x1e
 success
 line 2
-====BETWEEN-ATTEMPTS====
+\x1e
 success NEW
 line 2
-====BETWEEN-ATTEMPTS====
+\x1e
 success NEW
 line 2
-====BETWEEN-ATTEMPTS====
+\x1e
 success NEW
 line 2
-====BETWEEN-ATTEMPTS====
+\x1e
 success NEW
 line 2
-====BETWEEN-ATTEMPTS====
+\x1e
 success OLD
 line 2
-====BETWEEN-ATTEMPTS====
+\x1e
 success OLD
 line 2
-====BETWEEN-ATTEMPTS====
+\x1e
 success OLD
 line 2
-====BETWEEN-ATTEMPTS====
-====BETWEEN-ATTEMPTS====
-====BETWEEN-ATTEMPTS====
-====BETWEEN-ATTEMPTS====
-====BETWEEN-ATTEMPTS====' > /tmp/openshift/origin/test/cmd/compress_test.txt
+\x1e
+\x1e
+\x1e
+\x1e' > /tmp/openshift/origin/test/cmd/compress_test.txt
 
-echo "    3x 'success
-line 2'
-    4x 'success NEW
-line 2'
-    3x 'success OLD
-line 2'" > /tmp/openshift/origin/test/cmd/compress_test.out
+echo "success
+line 2
+... repeated 3 times
+success NEW
+line 2
+... repeated 4 times
+success OLD
+line 2
+... repeated 3 times" > /tmp/openshift/origin/test/cmd/compress_test.out
 
 os::cmd::internal::compress_output /tmp/openshift/origin/test/cmd/compress_test.txt > /tmp/openshift/origin/test/cmd/compressed.out
 diff /tmp/openshift/origin/test/cmd/compress_test.out /tmp/openshift/origin/test/cmd/compressed.out

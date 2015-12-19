@@ -327,14 +327,14 @@ function os::cmd::internal::get_results() {
 # using a timeline format, where consecutive output lines that are the same are condensed into one line
 # with a counter
 function os::cmd::internal::print_try_until_results() {
-	if grep -vq "^====BETWEEN-ATTEMPTS====$" "${os_cmd_internal_tmpout}"; then 
+	if grep -vq "^\x1e$" "${os_cmd_internal_tmpout}"; then 
 		echo "Standard output from the command:"
 		os::cmd::internal::compress_output "${os_cmd_internal_tmpout}"
 	else 
 		echo "There was no output from the command."                                      																																																																																																																
 	fi	
 
-	if grep -vq "^====BETWEEN-ATTEMPTS====$" "${os_cmd_internal_tmperr}"; then 
+	if grep -vq "^\x1e$" "${os_cmd_internal_tmperr}"; then 
 		echo "Standard error from the command:"
 		os::cmd::internal::compress_output "${os_cmd_internal_tmperr}"
 	else 
@@ -345,52 +345,59 @@ function os::cmd::internal::print_try_until_results() {
 # os::cmd::internal::mark_attempt marks the end of an attempt in the stdout and stderr log files
 # this is used to make the try_until_* output more concise
 function os::cmd::internal::mark_attempt() {
-	echo "====BETWEEN-ATTEMPTS====" >> "${os_cmd_internal_tmpout}" | tee "${os_cmd_internal_tmperr}"
+	# awk expects to use a single character as a record separator
+	# let's use \x1e, the ASCII record separator character
+	echo -e '\x1e' >> "${os_cmd_internal_tmpout}"
+	echo -e '\x1e' >> "${os_cmd_internal_tmperr}"
 }
 
 # os::cmd::internal::compress_output compresses an output file into timeline representation
 function os::cmd::internal::compress_output() {
 	local logfile=$1
 
-	# we need to do some manipulation to allow for multi-line patterns to be parsed correctly
-	# we first remove all newlines and replace them with the placeholder '====REPLACEMENT===='
-	os::util::sed ':a;N;$!ba;s/\n/====REPLACEMENT====/g' "${logfile}"
-	# we then place newlines between attempts
-	os::util::sed "s/\(====REPLACEMENT====\)\?====BETWEEN-ATTEMPTS====\(====REPLACEMENT====\)\?/\n/g" "${logfile}"
-	# now we have a file with the output of an attempt on every line, but some attempts may have not had any output
-	# so we remove empty lines
-	os::util::sed '/^$/d' "${logfile}"
+	awk '
+	# Helper functions
+	function trim(s) {
+		gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", s);
+		return s;
+	}
+	
+	function printRecordAndCount(record, count) {
+		print record;
+		if (count > 1) {
+			printf("... repeated %d times\n", count)
+		}
+	}
 
-	local lines=()
-	local amounts=()
+	BEGIN {
+		# Before processing, set the record separator to the ASCII record separator character \x1e
+		RS = "\x1e";
+	}
 
-	while read line; do
-		if [[ "${#lines[@]}" -gt 0 ]]; then
-			# if we have records in the `lines` array, check to see if the line we are looking at is the
-			# same as the line we last saw, and if so, increment that counter. If not, add a new entry
-			if [[ "${lines[-1]}" == "${line}" ]]; then
-				amounts[${#amounts[@]} - 1]=$(( amounts[${#amounts[@]} - 1] + 1 ))
-			else 
-				lines+=("${line}")
-				amounts+=(1)
-			fi
-		else 
-			lines+=("${line}")
-			amounts+=(1)
-		fi
-	done < "${logfile}"
+	# This action is executed for each record
+	{ 
+		# Build our current var from the trimmed record
+		current = trim($0);
 
-	local entries="${#lines[@]}"
-	for (( i=0; i<${entries}; i++ )); do
-		local amount=$(printf '%5d' "${amounts[$i]}")
+		# Bump the count of times we have seen it
+		seen[current]++;
 
-		# the lines that we captured still have a placeholder for their newlines
-		echo "${lines[$i]}" > "${logfile}.part"
-		os::util::sed 's/====REPLACEMENT====/\n/g' "${logfile}.part"
-		local output=$(cat "${logfile}.part")
-		
-		echo "${amount}x '${output}'"
-	done
+		# Print the previous record and its count (if it is not identical to the current record)
+		if (previous && previous != current) {
+			printRecordAndCount(previous, seen[previous]);
+		}
+
+		# Store the current record as the previous record
+		previous = current;
+	}
+
+	END {
+		# After processing, print the last record and count if it is non-empty
+		if (previous) {
+			printRecordAndCount(previous, seen[previous]);
+		}
+	}
+	' $logfile
 }
 
 # os::cmd::internal::print_results pretty-prints the stderr and stdout files
