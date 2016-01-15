@@ -47,6 +47,7 @@ func (l *allOpenShiftGroupLister) ListGroups() ([]string, error) {
 	}
 
 	var ldapGroupUIDs []string
+	// iterate through instead of "Difference" to preserve ordering
 	for _, group := range allGroups.Items {
 		if l.blacklist.Has(group.Name) {
 			continue
@@ -126,6 +127,7 @@ type openshiftGroupLister struct {
 
 func (l *openshiftGroupLister) ListGroups() ([]string, error) {
 	var groups []ouserapi.Group
+	// iterate through instead of "Difference" to preserve ordering
 	for _, name := range l.whitelist {
 		if l.blacklist.Has(name) {
 			continue
@@ -209,7 +211,7 @@ func (l *blacklistLDAPGroupLister) ListGroups() ([]string, error) {
 		return nil, err
 	}
 
-	// iterate through instead of  "Difference" to preserve ordering
+	// iterate through instead of "Difference" to preserve ordering
 	ret := []string{}
 	for _, name := range allNames {
 		if l.blacklist.Has(name) {

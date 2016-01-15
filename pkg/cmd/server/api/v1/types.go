@@ -793,6 +793,9 @@ type LDAPSyncConfig struct {
 	// OpenShift Group names
 	LDAPGroupUIDToOpenShiftGroupNameMapping map[string]string `json:"groupUIDNameMapping"`
 
+	// LDAPUserBlacklist is a list of LDAP user unique identifiers that identify users to be ignored in the sync process
+	LDAPUserBlacklist []string `json:"userBlacklist"`
+
 	// RFC2307Config holds the configuration for extracting data from an LDAP server set up in a fashion
 	// similar to RFC2307: first-class group and user entries, with group membership determined by a
 	// multi-valued attribute on the group entry listing its members

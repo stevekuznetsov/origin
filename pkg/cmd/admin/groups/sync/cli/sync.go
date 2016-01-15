@@ -364,7 +364,7 @@ func (o *SyncOptions) Run(cmd *cobra.Command, f *clientcmd.Factory) error {
 		return fmt.Errorf("invalid group source: %v", o.Source)
 	}
 
-	syncer.GroupMemberExtractor, err = syncBuilder.GetGroupMemberExtractor()
+	syncer.GroupMemberExtractor, err = getGroupMemberExtractor(syncBuilder, o.Config.LDAPUserBlacklist)
 	if err != nil {
 		return err
 	}
@@ -447,6 +447,25 @@ func getGroupNameMapper(syncBuilder SyncBuilder, info MappedNameRestrictions) (i
 		return &syncgroups.UnionGroupNameMapper{GroupNameMappers: []interfaces.LDAPGroupNameMapper{userDefinedMapper, syncNameMapper}}, nil
 	}
 	return syncNameMapper, nil
+}
+
+func getGroupMemberExtractor(syncBuilder SyncBuilder, blacklist []string) (interfaces.LDAPGroupMemberExtractor, error) {
+	if len(blacklist) == 0 {
+		return syncBuilder.GetGroupMemberExtractor()
+	}
+
+	nameMapper, err := syncBuilder.GetUserNameMapper()
+	if err != nil {
+		return nil, err
+	}
+
+	baseExtractor, err := syncBuilder.GetGroupMemberExtractor()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewBlacklistLDAPMemberExtractor(blacklist, baseExtractor, nameMapper)
+
 }
 
 // The following getters ensure that SyncOptions satisfies the name restriction interfaces
