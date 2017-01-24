@@ -16,7 +16,7 @@ ENV PATH=$PATH:$GOROOT/bin:$GOPATH/bin
 
 ADD *.rpm /tmp/origin-rpm/
 RUN mkdir $TMPDIR && \
-    INSTALL_PKGS="make gcc zip mercurial krb5-devel bsdtar bc rsync bind-utils file jq tito createrepo openssl" && \
+    INSTALL_PKGS="make gcc zip mercurial krb5-devel bsdtar bc rsync bind-utils file jq python-setuptools createrepo openssl" && \
     yum install -y $INSTALL_PKGS /tmp/origin-rpm/*.rpm && \
     rpm -V $INSTALL_PKGS && \
     yum clean all && \
@@ -24,6 +24,8 @@ RUN mkdir $TMPDIR && \
     chmod uga+x /usr/local/bin/protoc && \
     curl https://storage.googleapis.com/golang/go$VERSION.linux-amd64.tar.gz | tar -C /usr/local -xzf - && \
     go get golang.org/x/tools/cmd/cover golang.org/x/tools/cmd/goimports github.com/tools/godep github.com/golang/lint/golint && \
+    git clone https://github.com/dgoodwin/tito.git && \
+    pushd tito && ./setup.py build && ./setup.py install && popd && \
     touch /os-build-image && \
     git config --global user.name origin-release-container && \
     git config --global user.email none@nowhere.com
