@@ -21,7 +21,9 @@ RUN mkdir $TMPDIR && \
     yum clean all && \
     curl https://storage.googleapis.com/golang/go$VERSION.linux-amd64.tar.gz | tar -C /usr/local -xzf - && \
     go get golang.org/x/tools/cmd/cover github.com/tools/godep github.com/golang/lint/golint && \
-    touch /os-build-image
+    touch /os-build-image && \
+    git config --global user.name origin-release-container && \
+    git config --global user.email none@nowhere.com
 
 # Allows building Origin sources mounted using volume
 COPY openshift-origin-build.sh /usr/bin/openshift-origin-build.sh
